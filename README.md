@@ -9,7 +9,7 @@ Jmeter HTTP/2 sampler
 
 ## Quickstart
 
-1. Build Netty 5 (Alpha3+) and netty-tcnative for your platform
+1. Build Netty 4.1.x and netty-tcnative for your platform
 
 2. Copy HTTP2Sampler.jar, netty-all.jar, netty-tcnative.jar and hpack.jar to lib/ext of jmeter directory
 
