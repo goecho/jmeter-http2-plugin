@@ -1,8 +1,4 @@
-/*
- * This code was copied from HTTP/2 client examples of the Netty repository and modified only package name.
- */
-
-/*
+package jmeter.plugins.http2.sampler;/*
  * Copyright 2014 The Netty Project
  *
  * The Netty Project licenses this file to you under the Apache License, version 2.0 (the
@@ -16,7 +12,6 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package jmeter.plugins.http2.sampler;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
@@ -26,10 +21,10 @@ import io.netty.handler.codec.http2.Http2Settings;
 import java.util.concurrent.TimeUnit;
 
 /**
- * Reads the first {@link Http2Settings} object and notifies a {@link ChannelPromise}
+ * Reads the first {@link Http2Settings} object and notifies a {@link io.netty.channel.ChannelPromise}
  */
 public class Http2SettingsHandler extends SimpleChannelInboundHandler<Http2Settings> {
-    private ChannelPromise promise;
+    private final ChannelPromise promise;
 
     /**
      * Create new instance
@@ -45,7 +40,7 @@ public class Http2SettingsHandler extends SimpleChannelInboundHandler<Http2Setti
      * handshake to complete.
      *
      * @param timeout Time to wait
-     * @param unit    {@link TimeUnit} for {@code timeout}
+     * @param unit    {@link java.util.concurrent.TimeUnit} for {@code timeout}
      * @throws Exception if timeout or other failure occurs
      */
     public void awaitSettings(long timeout, TimeUnit unit) throws Exception {

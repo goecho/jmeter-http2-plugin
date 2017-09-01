@@ -1,8 +1,4 @@
-/*
- * This code was copied from HTTP/2 client examples of the Netty repository and modified only package name.
- */
-
-/*
+package jmeter.plugins.http2.sampler;/*
  * Copyright 2014 The Netty Project
  *
  * The Netty Project licenses this file to you under the Apache License, version 2.0 (the
@@ -16,16 +12,27 @@
  * or implied. See the License for the specific language governing permissions and limitations under
  * the License.
  */
-package jmeter.plugins.http2.sampler;
 
-import io.netty.channel.*;
+import io.netty.channel.ChannelHandlerContext;
+import io.netty.channel.ChannelInboundHandlerAdapter;
+import io.netty.channel.ChannelInitializer;
+import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.handler.codec.http.DefaultFullHttpRequest;
 import io.netty.handler.codec.http.HttpClientCodec;
 import io.netty.handler.codec.http.HttpClientUpgradeHandler;
 import io.netty.handler.codec.http.HttpMethod;
 import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.codec.http2.*;
+import io.netty.handler.codec.http2.DefaultHttp2Connection;
+import io.netty.handler.codec.http2.DelegatingDecompressorFrameListener;
+import io.netty.handler.codec.http2.Http2ClientUpgradeCodec;
+import io.netty.handler.codec.http2.Http2Connection;
+import io.netty.handler.codec.http2.Http2FrameLogger;
+import io.netty.handler.codec.http2.HttpToHttp2ConnectionHandler;
+import io.netty.handler.codec.http2.HttpToHttp2ConnectionHandlerBuilder;
+import io.netty.handler.codec.http2.InboundHttp2ToHttpAdapterBuilder;
+import io.netty.handler.ssl.ApplicationProtocolNames;
+import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
 
 import static io.netty.handler.logging.LogLevel.INFO;
@@ -38,8 +45,7 @@ public class Http2ClientInitializer extends ChannelInitializer<SocketChannel> {
 
     private final SslContext sslCtx;
     private final int maxContentLength;
-    /* private HttpToHttp2ConnectionHandler connectionHandler; */
-    private Http2ConnectionHandler connectionHandler;
+    private HttpToHttp2ConnectionHandler connectionHandler;
     private HttpResponseHandler responseHandler;
     private Http2SettingsHandler settingsHandler;
 
@@ -51,13 +57,14 @@ public class Http2ClientInitializer extends ChannelInitializer<SocketChannel> {
     @Override
     public void initChannel(SocketChannel ch) throws Exception {
         final Http2Connection connection = new DefaultHttp2Connection(false);
-
         connectionHandler = new HttpToHttp2ConnectionHandlerBuilder()
-                .frameListener(new DelegatingDecompressorFrameListener(connection,
+                .frameListener(new DelegatingDecompressorFrameListener(
+                        connection,
                         new InboundHttp2ToHttpAdapterBuilder(connection)
                                 .maxContentLength(maxContentLength)
                                 .propagateSettings(true)
                                 .build()))
+                .frameLogger(logger)
                 .connection(connection)
                 .build();
         responseHandler = new HttpResponseHandler();
@@ -78,8 +85,7 @@ public class Http2ClientInitializer extends ChannelInitializer<SocketChannel> {
     }
 
     protected void configureEndOfPipeline(ChannelPipeline pipeline) {
-        pipeline.addLast("Http2SettingsHandler", settingsHandler);
-        pipeline.addLast("HttpResponseHandler", responseHandler);
+        pipeline.addLast(settingsHandler, responseHandler);
     }
 
     /**
@@ -87,9 +93,22 @@ public class Http2ClientInitializer extends ChannelInitializer<SocketChannel> {
      */
     private void configureSsl(SocketChannel ch) {
         ChannelPipeline pipeline = ch.pipeline();
-        pipeline.addLast("SslHandler", sslCtx.newHandler(ch.alloc()));
-        pipeline.addLast("Http2Handler", connectionHandler);
-        configureEndOfPipeline(pipeline);
+        pipeline.addLast(sslCtx.newHandler(ch.alloc()));
+        // We must wait for the handshake to finish and the protocol to be negotiated before configuring
+        // the HTTP/2 components of the pipeline.
+        pipeline.addLast(new ApplicationProtocolNegotiationHandler("") {
+            @Override
+            protected void configurePipeline(ChannelHandlerContext ctx, String protocol) {
+                if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
+                    ChannelPipeline p = ctx.pipeline();
+                    p.addLast(connectionHandler);
+                    configureEndOfPipeline(p);
+                    return;
+                }
+                ctx.close();
+                throw new IllegalStateException("unknown protocol: " + protocol);
+            }
+        });
     }
 
     /**
@@ -100,10 +119,10 @@ public class Http2ClientInitializer extends ChannelInitializer<SocketChannel> {
         Http2ClientUpgradeCodec upgradeCodec = new Http2ClientUpgradeCodec(connectionHandler);
         HttpClientUpgradeHandler upgradeHandler = new HttpClientUpgradeHandler(sourceCodec, upgradeCodec, 65536);
 
-        ch.pipeline().addLast("Http2SourceCodec", sourceCodec);
-        ch.pipeline().addLast("Http2UpgradeHandler", upgradeHandler);
-        ch.pipeline().addLast("Http2UpgradeRequestHandler", new UpgradeRequestHandler());
-        ch.pipeline().addLast("Logger", new UserEventLogger());
+        ch.pipeline().addLast(sourceCodec,
+                upgradeHandler,
+                new UpgradeRequestHandler(),
+                new UserEventLogger());
     }
 
     /**
@@ -114,7 +133,6 @@ public class Http2ClientInitializer extends ChannelInitializer<SocketChannel> {
         public void channelActive(ChannelHandlerContext ctx) throws Exception {
             DefaultFullHttpRequest upgradeRequest =
                     new DefaultFullHttpRequest(HttpVersion.HTTP_1_1, HttpMethod.GET, "/");
-            upgradeRequest.headers().add("Host", "default");
             ctx.writeAndFlush(upgradeRequest);
 
             ctx.fireChannelActive();
@@ -122,7 +140,7 @@ public class Http2ClientInitializer extends ChannelInitializer<SocketChannel> {
             // Done with this handler, remove it from the pipeline.
             ctx.pipeline().remove(this);
 
-            Http2ClientInitializer.this.configureEndOfPipeline(ctx.pipeline());
+            configureEndOfPipeline(ctx.pipeline());
         }
     }
 
@@ -134,42 +152,6 @@ public class Http2ClientInitializer extends ChannelInitializer<SocketChannel> {
         public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
             System.out.println("User Event Triggered: " + evt);
             ctx.fireUserEventTriggered(evt);
-        }
-    }
-
-    private Http2FrameReader frameReader() {
-        return new Http2InboundFrameLogger(new DefaultHttp2FrameReader(), logger);
-    }
-
-    private Http2FrameWriter frameWriter() {
-        // Set initial SETTINGS
-        Http2Settings settings = new Http2Settings();
-        settings.pushEnabled(false);
-        settings.maxConcurrentStreams(100);
-
-        return new Http2OutboundFrameLogger(new CustomHttp2FrameWriter(settings), logger);
-    }
-
-    /**
-     * Custom HTTP/2 frame writer.
-     */
-    private class CustomHttp2FrameWriter extends DefaultHttp2FrameWriter {
-        private final Http2Settings settings;
-
-        public CustomHttp2FrameWriter(Http2Settings settings) {
-            this.settings = settings;
-        }
-
-        /**
-         * write customized SETTINGS
-         */
-        @Override
-        public ChannelFuture writeSettings(ChannelHandlerContext ctx, Http2Settings settings, ChannelPromise promise) {
-            if (this.settings != null) {
-                return super.writeSettings(ctx, this.settings, promise);
-            } else {
-                return super.writeSettings(ctx, settings, promise);
-            }
         }
     }
 }

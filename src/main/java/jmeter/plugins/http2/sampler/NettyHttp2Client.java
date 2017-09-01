@@ -23,12 +23,14 @@ import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.codec.http.*;
 import io.netty.handler.codec.http2.Http2SecurityUtil;
+import io.netty.handler.codec.http2.HttpConversionUtil;
 import io.netty.handler.ssl.*;
 import io.netty.handler.ssl.ApplicationProtocolConfig.Protocol;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectedListenerFailureBehavior;
 import io.netty.handler.ssl.ApplicationProtocolConfig.SelectorFailureBehavior;
 import io.netty.handler.ssl.util.InsecureTrustManagerFactory;
 import io.netty.util.AsciiString;
+import io.netty.util.CharsetUtil;
 import org.apache.jmeter.protocol.http.control.HeaderManager;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.testelement.property.CollectionProperty;
@@ -95,7 +97,7 @@ public class NettyHttp2Client {
         Http2SettingsHandler http2SettingsHandler = initializer.settingsHandler();
         try {
             try {
-                http2SettingsHandler.awaitSettings(5, TimeUnit.SECONDS);
+                http2SettingsHandler.awaitSettings(200, TimeUnit.MILLISECONDS);
             } catch (Exception exception) {
                 sampleResult.setSuccessful(false);
                 return sampleResult;
@@ -113,10 +115,9 @@ public class NettyHttp2Client {
                 return sampleResult;
             }
 
-            String requestPath = (path.startsWith("/")) ? hostName.toString() + path : path;
-
-            FullHttpRequest request = new DefaultFullHttpRequest(HTTP_1_1, new HttpMethod(method), requestPath);
-            request.headers().add(HttpHeaderNames.HOST, hostName);
+            FullHttpRequest request = new DefaultFullHttpRequest(HTTP_1_1, new HttpMethod(method), path);
+            request.headers().add(HttpHeaderNames.HOST, hostName.getHost());
+            request.headers().add(HttpConversionUtil.ExtensionHeaderNames.SCHEME.text(), scheme);
 
             // Add request headers set by HeaderManager
             if (headerManager != null) {
@@ -131,19 +132,21 @@ public class NettyHttp2Client {
                 }
             }
 
-            responseHandler.put(streamId, channel.newPromise());
-            channel.writeAndFlush(request);
+            responseHandler.put(streamId, channel.write(request), channel.newPromise());
 
-            final SortedMap<Integer, FullHttpResponse> responseMap;
+            final SortedMap<Integer, Http2Response> responseMap;
             try {
-                responseMap = responseHandler.awaitResponses(10, TimeUnit.SECONDS);
+                channel.flush();
+                responseMap = responseHandler.awaitResponses(5, TimeUnit.SECONDS);
                 // Currently pick up only one response of a stream
-                final FullHttpResponse response = responseMap.get(streamId);
+                Http2Response http2Response = responseMap.get(streamId);
+                final FullHttpResponse response = http2Response.getFullHttpResponse();
                 final AsciiString responseCode = response.status().codeAsText();
                 final String reasonPhrase = response.status().reasonPhrase();
                 sampleResult.setResponseCode(new StringBuilder(responseCode.length()).append(responseCode).toString());
                 sampleResult.setResponseMessage(new StringBuilder(reasonPhrase.length()).append(reasonPhrase).toString());
                 sampleResult.setResponseHeaders(getResponseHeaders(response));
+                sampleResult.setResponseData(http2Response.getContext(), "utf-8");
             } catch (Exception exception) {
                 sampleResult.setSuccessful(false);
                 return sampleResult;
@@ -170,13 +173,18 @@ public class NettyHttp2Client {
         try {
             sslCtx = SslContextBuilder.forClient()
                     .sslProvider(provider)
+                /* NOTE: the cipher filter may not include all ciphers required by the HTTP/2 specification.
+                 * Please refer to the HTTP/2 specification for cipher requirements. */
                     .ciphers(Http2SecurityUtil.CIPHERS, SupportedCipherSuiteFilter.INSTANCE)
                     .trustManager(InsecureTrustManagerFactory.INSTANCE)
                     .applicationProtocolConfig(new ApplicationProtocolConfig(
                             Protocol.ALPN,
+                            // NO_ADVERTISE is currently the only mode supported by both OpenSsl and JDK providers.
                             SelectorFailureBehavior.NO_ADVERTISE,
+                            // ACCEPT is currently the only mode supported by both OpenSsl and JDK providers.
                             SelectedListenerFailureBehavior.ACCEPT,
-                            ApplicationProtocolNames.HTTP_2))
+                            ApplicationProtocolNames.HTTP_2,
+                            ApplicationProtocolNames.HTTP_1_1))
                     .build();
         } catch (SSLException exception) {
             return null;
