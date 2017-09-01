@@ -22,6 +22,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http2.Http2Settings;
+
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -44,7 +45,7 @@ public class Http2SettingsHandler extends SimpleChannelInboundHandler<Http2Setti
      * handshake to complete.
      *
      * @param timeout Time to wait
-     * @param unit {@link TimeUnit} for {@code timeout}
+     * @param unit    {@link TimeUnit} for {@code timeout}
      * @throws Exception if timeout or other failure occurs
      */
     public void awaitSettings(long timeout, TimeUnit unit) throws Exception {
@@ -57,7 +58,7 @@ public class Http2SettingsHandler extends SimpleChannelInboundHandler<Http2Setti
     }
 
     @Override
-    protected void messageReceived(ChannelHandlerContext ctx, Http2Settings msg) throws Exception {
+    protected void channelRead0(ChannelHandlerContext ctx, Http2Settings msg) throws Exception {
         promise.setSuccess();
 
         // Only care about the first settings message

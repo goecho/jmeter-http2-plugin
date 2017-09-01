@@ -15,17 +15,13 @@
  */
 package jmeter.plugins.http2.sampler;
 
-import java.net.InetSocketAddress;
-import java.util.concurrent.Phaser;
-import java.util.concurrent.TimeUnit;
-
 import org.apache.jmeter.protocol.http.control.HeaderManager;
 import org.apache.jmeter.protocol.http.sampler.HTTPSamplerBase;
 import org.apache.jmeter.samplers.AbstractSampler;
 import org.apache.jmeter.samplers.Entry;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.testelement.TestElement;
-import org.apache.jmeter.testelement.property.*;
+import org.apache.jmeter.testelement.property.TestElementProperty;
 import org.apache.jorphan.logging.LoggingManager;
 import org.apache.log.Logger;
 
@@ -34,6 +30,7 @@ public class HTTP2Sampler extends AbstractSampler {
     private static final Logger log = LoggingManager.getLoggerForClass();
 
     public static final String METHOD = "HTTP2Sampler.method";
+    public static final String SCHEME = "HTTP2Sampler.scheme";
     public static final String DOMAIN = "HTTP2Sampler.domain";
     public static final String PORT = "HTTP2Sampler.port";
     public static final String PATH = "HTTP2Sampler.path";
@@ -72,15 +69,14 @@ public class HTTP2Sampler extends AbstractSampler {
     }
 
     @Override
-    public SampleResult sample(Entry e)
-    {
+    public SampleResult sample(Entry e) {
         log.debug("sample()");
 
         // Load test elements
-        HeaderManager headerManager = (HeaderManager)getProperty(HTTPSamplerBase.HEADER_MANAGER).getObjectValue();
+        HeaderManager headerManager = (HeaderManager) getProperty(HTTPSamplerBase.HEADER_MANAGER).getObjectValue();
 
         // Send H2 request
-        NettyHttp2Client client = new NettyHttp2Client(getMethod(), getDomain(), getPort(), getPath(), headerManager);
+        NettyHttp2Client client = new NettyHttp2Client(getMethod(), getDomain(), getPort(), getPath(), headerManager, getScheme());
         SampleResult res = client.request();
         res.setSampleLabel(getName());
 
@@ -88,39 +84,51 @@ public class HTTP2Sampler extends AbstractSampler {
     }
 
     public void setMethod(String value) {
-      setProperty(METHOD, value);
+        setProperty(METHOD, value);
     }
 
     public String getMethod() {
-      return getPropertyAsString(METHOD);
+        return getPropertyAsString(METHOD);
+    }
+
+    public void setScheme(String value) {
+        setProperty(SCHEME, value);
+    }
+
+    public String getScheme() {
+        return getPropertyAsString(SCHEME);
     }
 
     public void setDomain(String value) {
-      setProperty(DOMAIN, value);
+        setProperty(DOMAIN, value);
     }
 
     public String getDomain() {
-      return getPropertyAsString(DOMAIN);
+        return getPropertyAsString(DOMAIN);
     }
 
     public void setPort(int value) {
-      setProperty(PORT, value);
+        setProperty(PORT, value);
     }
 
     public int getPort() {
-      return getPropertyAsInt(PORT);
+        return getPropertyAsInt(PORT);
+    }
+
+    public String getPortAsString() {
+        return getPropertyAsString(PORT);
     }
 
     public void setPath(String value) {
-      setProperty(PATH, value);
+        setProperty(PATH, value);
     }
 
     public String getPath() {
-      return getPropertyAsString(PATH);
+        return getPropertyAsString(PATH);
     }
 
     private HeaderManager getHeaderManager() {
-        return (HeaderManager)getProperty(HTTPSamplerBase.HEADER_MANAGER).getObjectValue();
+        return (HeaderManager) getProperty(HTTPSamplerBase.HEADER_MANAGER).getObjectValue();
     }
 }
 

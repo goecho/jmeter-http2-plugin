@@ -23,7 +23,7 @@ import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.ChannelPromise;
 import io.netty.channel.SimpleChannelInboundHandler;
 import io.netty.handler.codec.http.FullHttpResponse;
-import io.netty.handler.codec.http2.HttpUtil;
+import io.netty.handler.codec.http2.HttpConversionUtil;
 import io.netty.util.CharsetUtil;
 
 import java.util.Iterator;
@@ -49,7 +49,7 @@ public class HttpResponseHandler extends SimpleChannelInboundHandler<FullHttpRes
      * Create an association between an anticipated response stream id and a {@link ChannelPromise}
      *
      * @param streamId The stream for which a response is expected
-     * @param promise The promise object that will be used to wait/notify events
+     * @param promise  The promise object that will be used to wait/notify events
      * @return The previous object associated with {@code streamId}
      * @see HttpResponseHandler#awaitResponses(long, TimeUnit)
      */
@@ -61,7 +61,7 @@ public class HttpResponseHandler extends SimpleChannelInboundHandler<FullHttpRes
      * Wait (sequentially) for a time duration for each anticipated response
      *
      * @param timeout Value of time to wait for each response
-     * @param unit Units associated with {@code timeout}
+     * @param unit    Units associated with {@code timeout}
      * @see HttpResponseHandler#put(int, ChannelPromise)
      */
     public SortedMap<Integer, FullHttpResponse> awaitResponses(long timeout, TimeUnit unit) {
@@ -84,8 +84,8 @@ public class HttpResponseHandler extends SimpleChannelInboundHandler<FullHttpRes
     }
 
     @Override
-    protected void messageReceived(ChannelHandlerContext ctx, FullHttpResponse msg) throws Exception {
-        Integer streamId = msg.headers().getInt(HttpUtil.ExtensionHeaderNames.STREAM_ID.text());
+    protected void channelRead0(ChannelHandlerContext ctx, FullHttpResponse msg) throws Exception {
+        Integer streamId = msg.headers().getInt(HttpConversionUtil.ExtensionHeaderNames.STREAM_ID.text());
         if (streamId == null) {
             System.err.println("HttpResponseHandler unexpected message received: " + msg);
             return;
@@ -103,11 +103,9 @@ public class HttpResponseHandler extends SimpleChannelInboundHandler<FullHttpRes
                 content.readBytes(arr);
                 System.out.println(new String(arr, 0, contentLength, CharsetUtil.UTF_8));
             }
-
-            promise.setSuccess();
-
             // Set result
             streamidResponseMap.put(streamId, msg);
+            promise.setSuccess();
         }
     }
 }
