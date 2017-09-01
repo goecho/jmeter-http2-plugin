@@ -15,6 +15,9 @@ Jmeter HTTP/2 sampler
 
   * If you use gzip encoding, you must prepare jzlib.jar too.
 
+3. select your jdk version.
+    http://www.eclipse.org/jetty/documentation/current/alpn-chapter.html#alpn-versions
+
 3. Run JMeter
 
 4. Write your test scenario with HTTP2Sampler
