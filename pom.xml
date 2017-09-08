@@ -15,6 +15,33 @@
         <version.commons-math3>3.5</version.commons-math3>
     </properties>
 
+    <profiles>
+        <profile>
+            <id>windows</id>
+            <activation>
+                <property>
+                    <name>env</name>
+                    <value>dev</value>
+                </property>
+            </activation>
+            <properties>
+                <tcnative.classifier>windows-x86_64</tcnative.classifier>
+            </properties>
+        </profile>
+        <profile>
+            <id>linux</id>
+            <activation>
+                <property>
+                    <name>env</name>
+                    <value>production</value>
+                </property>
+            </activation>
+            <properties>
+                <tcnative.classifier>linux-x86_64</tcnative.classifier>
+            </properties>
+        </profile>
+    </profiles>
+
     <dependencies>
         <dependency>
             <groupId>org.apache.commons</groupId>
@@ -72,13 +99,27 @@
             <version>${version.netty-all}</version>
         </dependency>
         <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.2.3</version>
+        </dependency>
+        <dependency>
             <groupId>io.netty</groupId>
             <artifactId>netty-tcnative</artifactId>
-            <version>1.1.33.Fork22</version>
+            <version>2.0.0.Final</version>
+            <classifier>${tcnative.classifier}</classifier>
         </dependency>
     </dependencies>
 
     <build>
+        <extensions>
+            <!-- Use os-maven-plugin to initialize the "os.detected" properties -->
+            <extension>
+                <groupId>kr.motd.maven</groupId>
+                <artifactId>os-maven-plugin</artifactId>
+                <version>1.4.0.Final</version>
+            </extension>
+        </extensions>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>

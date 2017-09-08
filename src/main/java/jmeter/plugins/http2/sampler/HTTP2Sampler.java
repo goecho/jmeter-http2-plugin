@@ -68,8 +68,6 @@ public class HTTP2Sampler extends AbstractSampler {
 
     @Override
     public SampleResult sample(Entry e) {
-        log.debug("sample()");
-
         // Load test elements
         HeaderManager headerManager = (HeaderManager) getProperty(HTTPSamplerBase.HEADER_MANAGER).getObjectValue();
 

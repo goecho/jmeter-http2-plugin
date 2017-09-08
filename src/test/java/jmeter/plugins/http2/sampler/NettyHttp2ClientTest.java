@@ -21,10 +21,5 @@ public class NettyHttp2ClientTest {
         NettyHttp2Client client = new NettyHttp2Client("GET", "cache.video.iqiyi.com", 443, "", null, "https");
         SampleResult res = client.request();
         System.out.println(res);
-        try {
-            Thread.sleep(3000);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
     }
 }

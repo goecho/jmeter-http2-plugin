@@ -17,19 +17,9 @@ import io.netty.channel.ChannelInboundHandlerAdapter;
 import io.netty.channel.ChannelInitializer;
 import io.netty.channel.ChannelPipeline;
 import io.netty.channel.socket.SocketChannel;
-import io.netty.handler.codec.http.DefaultFullHttpRequest;
-import io.netty.handler.codec.http.HttpClientCodec;
-import io.netty.handler.codec.http.HttpClientUpgradeHandler;
-import io.netty.handler.codec.http.HttpMethod;
-import io.netty.handler.codec.http.HttpVersion;
-import io.netty.handler.codec.http2.DefaultHttp2Connection;
-import io.netty.handler.codec.http2.DelegatingDecompressorFrameListener;
-import io.netty.handler.codec.http2.Http2ClientUpgradeCodec;
-import io.netty.handler.codec.http2.Http2Connection;
-import io.netty.handler.codec.http2.Http2FrameLogger;
-import io.netty.handler.codec.http2.HttpToHttp2ConnectionHandler;
-import io.netty.handler.codec.http2.HttpToHttp2ConnectionHandlerBuilder;
-import io.netty.handler.codec.http2.InboundHttp2ToHttpAdapterBuilder;
+import io.netty.handler.codec.http.*;
+import io.netty.handler.codec.http2.*;
+import io.netty.handler.logging.LoggingHandler;
 import io.netty.handler.ssl.ApplicationProtocolNames;
 import io.netty.handler.ssl.ApplicationProtocolNegotiationHandler;
 import io.netty.handler.ssl.SslContext;
@@ -101,6 +91,7 @@ public class Http2ClientInitializer extends ChannelInitializer<SocketChannel> {
                 if (ApplicationProtocolNames.HTTP_2.equals(protocol)) {
                     ChannelPipeline p = ctx.pipeline();
                     p.addLast(connectionHandler);
+                    p.addLast(new LoggingHandler(INFO));
                     configureEndOfPipeline(p);
                     return;
                 }
@@ -149,7 +140,6 @@ public class Http2ClientInitializer extends ChannelInitializer<SocketChannel> {
     private static class UserEventLogger extends ChannelInboundHandlerAdapter {
         @Override
         public void userEventTriggered(ChannelHandlerContext ctx, Object evt) throws Exception {
-            System.out.println("User Event Triggered: " + evt);
             ctx.fireUserEventTriggered(evt);
         }
     }
