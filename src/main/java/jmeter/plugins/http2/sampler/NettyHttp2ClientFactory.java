@@ -45,16 +45,10 @@ import static io.netty.handler.codec.http.HttpVersion.HTTP_1_1;
 
 public class NettyHttp2ClientFactory {
 
-    private Bootstrap b = new Bootstrap();
     private EventLoopGroup workerGroup = new NioEventLoopGroup();
-    private SslContext sslCtx = getSslContext();
-    private Http2ClientInitializer initializer = new Http2ClientInitializer(sslCtx, Integer.MAX_VALUE);
+    private static SslContext sslCtx = getSslContext();
 
     public NettyHttp2ClientFactory() {
-        b.group(workerGroup);
-        b.channel(NioSocketChannel.class);
-        b.option(ChannelOption.SO_KEEPALIVE, true);
-        b.handler(initializer);
         Runtime.getRuntime().addShutdownHook(new Thread(() -> workerGroup.shutdownGracefully()));
     }
 
@@ -63,8 +57,14 @@ public class NettyHttp2ClientFactory {
     }
 
     public SampleResult request(String method, String host, int port, String path, HeaderManager headerManager, String scheme) {
+        Bootstrap b = new Bootstrap();
+        b.group(workerGroup);
+        b.channel(NioSocketChannel.class);
+        b.option(ChannelOption.SO_KEEPALIVE, true);
+        Http2ClientInitializer initializer = new Http2ClientInitializer(sslCtx, Integer.MAX_VALUE);
         SampleResult sampleResult = new SampleResult();
         b.remoteAddress(host, port);
+        b.handler(initializer);
         // Start sampling
         sampleResult.sampleStart();
 
@@ -139,7 +139,7 @@ public class NettyHttp2ClientFactory {
         return sampleResult;
     }
 
-    private SslContext getSslContext() {
+    private static SslContext getSslContext() {
         SslContext sslCtx = null;
 
         final SslProvider provider = OpenSsl.isAlpnSupported() ? SslProvider.OPENSSL : SslProvider.JDK;
