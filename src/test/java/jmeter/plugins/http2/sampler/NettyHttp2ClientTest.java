@@ -21,5 +21,11 @@ public class NettyHttp2ClientTest {
         NettyHttp2Client client = new NettyHttp2Client("GET", "cache.video.iqiyi.com", 443, "", null, "https");
         SampleResult res = client.request();
         System.out.println(res);
+
+        NettyHttp2Client client2 = new NettyHttp2Client("GET", "cache.video.iqiyi.com", 443, "/test.png", null, "https");
+        SampleResult res2 = client2.request();
+        System.out.println(res2);
+
+        NettyHttp2Client.close();
     }
 }

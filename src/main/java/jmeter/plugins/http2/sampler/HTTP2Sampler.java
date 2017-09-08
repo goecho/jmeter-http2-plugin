@@ -19,11 +19,12 @@ import org.apache.jmeter.samplers.AbstractSampler;
 import org.apache.jmeter.samplers.Entry;
 import org.apache.jmeter.samplers.SampleResult;
 import org.apache.jmeter.testelement.TestElement;
+import org.apache.jmeter.testelement.ThreadListener;
 import org.apache.jmeter.testelement.property.TestElementProperty;
 import org.apache.jorphan.logging.LoggingManager;
 import org.apache.log.Logger;
 
-public class HTTP2Sampler extends AbstractSampler {
+public class HTTP2Sampler extends AbstractSampler implements ThreadListener {
 
     private static final Logger log = LoggingManager.getLoggerForClass();
 
@@ -50,6 +51,15 @@ public class HTTP2Sampler extends AbstractSampler {
     @Override
     public String getName() {
         return getPropertyAsString(TestElement.NAME);
+    }
+
+    @Override
+    public void threadStarted() {
+    }
+
+    @Override
+    public void threadFinished() {
+        NettyHttp2Client.close();
     }
 
     @Override
